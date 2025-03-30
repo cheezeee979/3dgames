@@ -10,6 +10,7 @@ const acceleration = 0.02;
 const deceleration = 0.98; // Higher value means slower deceleration
 const friction = 0.99; // Higher value means less friction
 const rotationSpeed = 1.0; // Increased from 0.1 to 1.0 for more obvious rotation
+const ballHeight = playerRadius * 1.1; // Slightly higher than radius to prevent sinking
 
 // Create dotted texture for the ball
 function createDottedTexture() {
@@ -50,6 +51,7 @@ function init() {
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     // Create player (ball)
     const playerGeometry = new THREE.SphereGeometry(playerRadius, 32, 32);
@@ -59,7 +61,7 @@ function init() {
     });
     player = new THREE.Mesh(playerGeometry, playerMaterial);
     player.castShadow = true;
-    player.position.y = playerRadius;
+    player.position.y = ballHeight; // Use the new ballHeight constant
     scene.add(player);
 
     // Create island
@@ -96,9 +98,20 @@ function init() {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(5, 5, 5);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Increased intensity
+    directionalLight.position.set(5, 10, 5); // Adjusted position for better shadow coverage
     directionalLight.castShadow = true;
+    
+    // Configure shadow camera
+    directionalLight.shadow.camera.near = 0.1;
+    directionalLight.shadow.camera.far = 1000;
+    directionalLight.shadow.camera.left = -50;
+    directionalLight.shadow.camera.right = 50;
+    directionalLight.shadow.camera.top = 50;
+    directionalLight.shadow.camera.bottom = -50;
+    directionalLight.shadow.mapSize.width = 2048; // Increased shadow resolution
+    directionalLight.shadow.mapSize.height = 2048;
+    
     scene.add(directionalLight);
 
     // Position camera
@@ -185,8 +198,8 @@ function update() {
     }
 
     // Keep player on island surface
-    if (player.position.y < playerRadius) {
-        player.position.y = playerRadius;
+    if (player.position.y < ballHeight) {
+        player.position.y = ballHeight;
         playerVelocity.y = 0;
     }
 }
@@ -201,7 +214,7 @@ function gameOver() {
 
 // Reset game
 function resetGame() {
-    player.position.set(0, playerRadius, 0);
+    player.position.set(0, ballHeight, 0); // Use the new ballHeight constant
     playerVelocity.set(0, 0, 0);
     player.rotation.set(0, 0, 0); // Reset rotation
     isGameOver = false;
