@@ -5,8 +5,10 @@ let playerVelocity = new THREE.Vector3();
 const playerRadius = 1;
 const islandRadius = playerRadius * 10;
 const gravity = 0.1;
-const moveSpeed = 0.2;
-const jumpForce = 0.5;
+const maxSpeed = 0.3;
+const acceleration = 0.02;
+const deceleration = 0.98; // Higher value means slower deceleration
+const friction = 0.99; // Higher value means less friction
 
 // Initialize the game
 function init() {
@@ -81,36 +83,22 @@ function init() {
 function handleKeyDown(event) {
     switch(event.key) {
         case 'ArrowLeft':
-            playerVelocity.x = -moveSpeed;
+            playerVelocity.x -= acceleration;
             break;
         case 'ArrowRight':
-            playerVelocity.x = moveSpeed;
+            playerVelocity.x += acceleration;
             break;
         case 'ArrowUp':
-            playerVelocity.z = -moveSpeed;
+            playerVelocity.z -= acceleration;
             break;
         case 'ArrowDown':
-            playerVelocity.z = moveSpeed;
-            break;
-        case ' ':
-            if (player.position.y <= playerRadius) {
-                playerVelocity.y = jumpForce;
-            }
+            playerVelocity.z += acceleration;
             break;
     }
 }
 
 function handleKeyUp(event) {
-    switch(event.key) {
-        case 'ArrowLeft':
-        case 'ArrowRight':
-            playerVelocity.x = 0;
-            break;
-        case 'ArrowUp':
-        case 'ArrowDown':
-            playerVelocity.z = 0;
-            break;
-    }
+    // We don't need to handle key up anymore as we're using acceleration/deceleration
 }
 
 // Update game state
@@ -119,6 +107,18 @@ function update() {
 
     // Apply gravity
     playerVelocity.y -= gravity;
+
+    // Apply friction and deceleration
+    playerVelocity.x *= friction;
+    playerVelocity.z *= friction;
+
+    // Limit maximum speed
+    const horizontalSpeed = Math.sqrt(playerVelocity.x * playerVelocity.x + playerVelocity.z * playerVelocity.z);
+    if (horizontalSpeed > maxSpeed) {
+        const ratio = maxSpeed / horizontalSpeed;
+        playerVelocity.x *= ratio;
+        playerVelocity.z *= ratio;
+    }
 
     // Update player position
     player.position.x += playerVelocity.x;
