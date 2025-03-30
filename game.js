@@ -225,10 +225,10 @@ function createSplashEffect(position) {
         
         // Random velocity in a circular upward pattern
         const angle = (i / numberOfSplashParticles) * Math.PI * 2;
-        const speed = 0.3 + Math.random() * 0.4; // Increased speed
+        const speed = 0.15 + Math.random() * 0.2; // Reduced from 0.3 + Math.random() * 0.4
         particle.userData.velocity = new THREE.Vector3(
             Math.cos(angle) * speed,
-            0.5 + Math.random() * 0.3, // Increased upward velocity
+            0.25 + Math.random() * 0.15, // Reduced from 0.5 + Math.random() * 0.3
             Math.sin(angle) * speed
         );
         
