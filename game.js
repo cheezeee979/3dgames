@@ -12,6 +12,55 @@ const friction = 0.99; // Higher value means less friction
 const rotationSpeed = 1.0; // Increased from 0.1 to 1.0 for more obvious rotation
 const ballHeight = playerRadius * 1.1; // Slightly higher than radius to prevent sinking
 
+// Create grass texture for the island
+function createGrassTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // Base light green color
+    ctx.fillStyle = '#4CAF50';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Add subtle grass blades
+    ctx.strokeStyle = '#45a049';
+    ctx.lineWidth = 1;
+    
+    for (let i = 0; i < 50; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const length = 3 + Math.random() * 3;
+        const angle = Math.random() * Math.PI * 2;
+        
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(
+            x + Math.cos(angle) * length,
+            y + Math.sin(angle) * length
+        );
+        ctx.stroke();
+    }
+
+    // Add very subtle highlights
+    ctx.fillStyle = '#66bb6a';
+    for (let i = 0; i < 30; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const size = 1 + Math.random() * 2;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 4); // Repeat the texture 4x4 times
+    return texture;
+}
+
 // Create dotted texture for the ball
 function createDottedTexture() {
     const canvas = document.createElement('canvas');
@@ -61,16 +110,27 @@ function init() {
     });
     player = new THREE.Mesh(playerGeometry, playerMaterial);
     player.castShadow = true;
-    player.position.y = ballHeight; // Use the new ballHeight constant
+    player.position.y = ballHeight;
     scene.add(player);
 
-    // Create island
-    const islandGeometry = new THREE.CylinderGeometry(islandRadius, islandRadius, 1, 32);
-    const islandMaterial = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
-    island = new THREE.Mesh(islandGeometry, islandMaterial);
-    island.receiveShadow = true;
-    island.position.y = 0;
-    scene.add(island);
+    // Load grass texture and create island
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load('assets/grass_texture.png', function(texture) {
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(4, 4); // Adjust this value to change the texture scale
+        
+        const islandGeometry = new THREE.CylinderGeometry(islandRadius, islandRadius, 1, 32);
+        const islandMaterial = new THREE.MeshPhongMaterial({ 
+            map: texture,
+            shininess: 5,
+            specular: 0x444444
+        });
+        island = new THREE.Mesh(islandGeometry, islandMaterial);
+        island.receiveShadow = true;
+        island.position.y = 0;
+        scene.add(island);
+    });
 
     // Create water
     const waterGeometry = new THREE.PlaneGeometry(1000, 1000);
@@ -98,8 +158,8 @@ function init() {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Increased intensity
-    directionalLight.position.set(5, 10, 5); // Adjusted position for better shadow coverage
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    directionalLight.position.set(5, 10, 5);
     directionalLight.castShadow = true;
     
     // Configure shadow camera
@@ -109,7 +169,7 @@ function init() {
     directionalLight.shadow.camera.right = 50;
     directionalLight.shadow.camera.top = 50;
     directionalLight.shadow.camera.bottom = -50;
-    directionalLight.shadow.mapSize.width = 2048; // Increased shadow resolution
+    directionalLight.shadow.mapSize.width = 2048;
     directionalLight.shadow.mapSize.height = 2048;
     
     scene.add(directionalLight);
@@ -198,8 +258,8 @@ function update() {
     }
 
     // Keep player on island surface
-    if (player.position.y < ballHeight) {
-        player.position.y = ballHeight;
+    if (player.position.y < playerRadius) {
+        player.position.y = playerRadius;
         playerVelocity.y = 0;
     }
 }
@@ -214,7 +274,7 @@ function gameOver() {
 
 // Reset game
 function resetGame() {
-    player.position.set(0, ballHeight, 0); // Use the new ballHeight constant
+    player.position.set(0, playerRadius, 0);
     playerVelocity.set(0, 0, 0);
     player.rotation.set(0, 0, 0); // Reset rotation
     isGameOver = false;
