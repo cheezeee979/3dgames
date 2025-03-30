@@ -4,6 +4,8 @@ let clouds = []; // Array to store cloud objects
 let splashParticles = []; // Array to store splash particles
 let isGameOver = false;
 let playerVelocity = new THREE.Vector3();
+let isFloating = false;
+let floatTime = 0;
 const playerRadius = 1;
 const islandRadius = playerRadius * 10;
 const gravity = 0.05; // Reduced from 0.1 to 0.05 for slower falling
@@ -16,6 +18,10 @@ const ballHeight = playerRadius * 1.1; // Slightly higher than radius to prevent
 const cloudSpeed = 0.1; // Increased speed
 const numberOfClouds = 3; // Reduced from 6 to 3
 const numberOfSplashParticles = 30; // Number of particles in splash
+const floatDuration = 3.0; // Duration of floating in seconds
+const floatAmplitude = 0.15; // Increased from 0.1 to 0.15 for more noticeable bobbing
+const floatFrequency = 3.0; // Increased from 2.0 to 3.0 for faster bobbing
+const waterFriction = 0.95; // Friction while floating in water
 
 // Create grass texture for the island
 function createGrassTexture() {
@@ -358,6 +364,9 @@ function init() {
 
 // Handle keyboard input
 function handleKeyDown(event) {
+    // Don't handle input if the ball is floating in water
+    if (isFloating) return;
+
     switch(event.key) {
         case 'ArrowLeft':
             playerVelocity.x -= acceleration;
@@ -430,21 +439,41 @@ function update() {
         // Only trigger game over if the ball is below -5 units (deep in the water)
         // or if it's fallen off the island AND is below the water surface
         if (player.position.y < -5 || (distanceFromCenter > islandRadius && player.position.y < -0.1)) {
-            console.log('Game Over triggered! Distance:', distanceFromCenter, 'Y:', player.position.y);
+            console.log('Water contact detected! Previous Y:', previousY, 'Current Y:', player.position.y);
+            // Create splash at the exact point where the ball hits the water
+            const splashPosition = new THREE.Vector3(
+                player.position.x,
+                -0.1,
+                player.position.z
+            );
+            createSplashEffect(splashPosition);
+            isFloating = true;
+            floatTime = 0;
             gameOver();
         }
     }
 
-    // Check for water contact (water is at y = -0.1)
-    if (previousY >= -0.1 && player.position.y < -0.1) {
-        console.log('Water contact detected! Previous Y:', previousY, 'Current Y:', player.position.y);
-        // Create splash at the exact point where the ball hits the water
-        const splashPosition = new THREE.Vector3(
-            player.position.x,
-            -0.1,
-            player.position.z
-        );
-        createSplashEffect(splashPosition);
+    // Handle floating behavior
+    if (isFloating) {
+        floatTime += 0.016; // Assuming 60fps, this is approximately 1/60 second
+
+        // Apply water friction to horizontal movement
+        playerVelocity.x *= waterFriction;
+        playerVelocity.z *= waterFriction;
+
+        // Continue horizontal movement
+        player.position.x += playerVelocity.x;
+        player.position.z += playerVelocity.z;
+
+        // Calculate floating motion
+        const floatOffset = Math.sin(floatTime * floatFrequency) * floatAmplitude;
+        player.position.y = -0.1 + floatOffset;
+
+        // Check if floating duration is complete
+        if (floatTime >= floatDuration) {
+            isFloating = false;
+            resetGame();
+        }
     }
 
     // Update splash particles (always update, even after game over)
@@ -454,10 +483,7 @@ function update() {
 // Game over handler
 function gameOver() {
     isGameOver = true;
-    // Wait for splash animation to complete before resetting
-    setTimeout(() => {
-        resetGame();
-    }, 2000); // Increased from 1000 to 2000 to allow more time for splash animation
+    // No need for setTimeout here anymore as we handle the delay in the floating behavior
 }
 
 // Reset game
@@ -472,6 +498,8 @@ function resetGame() {
     playerVelocity.set(0, 0, 0);
     player.rotation.set(0, 0, 0); // Reset rotation
     isGameOver = false;
+    isFloating = false;
+    floatTime = 0;
 }
 
 // Animation loop
