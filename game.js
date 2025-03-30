@@ -9,6 +9,38 @@ const maxSpeed = 0.3;
 const acceleration = 0.02;
 const deceleration = 0.98; // Higher value means slower deceleration
 const friction = 0.99; // Higher value means less friction
+const rotationSpeed = 1.0; // Increased from 0.1 to 1.0 for more obvious rotation
+
+// Create dotted texture for the ball
+function createDottedTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // Fill background with red
+    ctx.fillStyle = '#ff0000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw white dots
+    ctx.fillStyle = '#ffffff';
+    const dotSize = 8;
+    const spacing = 32;
+    
+    for (let x = spacing; x < canvas.width; x += spacing) {
+        for (let y = spacing; y < canvas.height; y += spacing) {
+            ctx.beginPath();
+            ctx.arc(x, y, dotSize/2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 2);
+    return texture;
+}
 
 // Initialize the game
 function init() {
@@ -21,7 +53,10 @@ function init() {
 
     // Create player (ball)
     const playerGeometry = new THREE.SphereGeometry(playerRadius, 32, 32);
-    const playerMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+    const playerMaterial = new THREE.MeshPhongMaterial({ 
+        map: createDottedTexture(),
+        shininess: 30
+    });
     player = new THREE.Mesh(playerGeometry, playerMaterial);
     player.castShadow = true;
     player.position.y = playerRadius;
@@ -125,6 +160,16 @@ function update() {
     player.position.y += playerVelocity.y;
     player.position.z += playerVelocity.z;
 
+    // Update ball rotation based on movement
+    if (horizontalSpeed > 0.01) { // Only rotate if moving
+        // Calculate rotation axis (perpendicular to movement direction)
+        const rotationAxis = new THREE.Vector3(-playerVelocity.z, 0, playerVelocity.x).normalize();
+        // Calculate rotation amount based on speed
+        const rotationAmount = horizontalSpeed * rotationSpeed;
+        // Apply rotation
+        player.rotateOnAxis(rotationAxis, rotationAmount);
+    }
+
     // Check if player is on the island
     const distanceFromCenter = Math.sqrt(
         Math.pow(player.position.x, 2) + 
@@ -158,6 +203,7 @@ function gameOver() {
 function resetGame() {
     player.position.set(0, playerRadius, 0);
     playerVelocity.set(0, 0, 0);
+    player.rotation.set(0, 0, 0); // Reset rotation
     isGameOver = false;
 }
 
