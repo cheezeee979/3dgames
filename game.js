@@ -1,11 +1,12 @@
 // Game state
 let scene, camera, renderer, player, island, water, sky;
 let clouds = []; // Array to store cloud objects
+let splashParticles = []; // Array to store splash particles
 let isGameOver = false;
 let playerVelocity = new THREE.Vector3();
 const playerRadius = 1;
 const islandRadius = playerRadius * 10;
-const gravity = 0.1;
+const gravity = 0.05; // Reduced from 0.1 to 0.05 for slower falling
 const maxSpeed = 0.3;
 const acceleration = 0.02;
 const deceleration = 0.98; // Higher value means slower deceleration
@@ -14,6 +15,7 @@ const rotationSpeed = 1.0; // Increased from 0.1 to 1.0 for more obvious rotatio
 const ballHeight = playerRadius * 1.1; // Slightly higher than radius to prevent sinking
 const cloudSpeed = 0.1; // Increased speed
 const numberOfClouds = 3; // Reduced from 6 to 3
+const numberOfSplashParticles = 30; // Number of particles in splash
 
 // Create grass texture for the island
 function createGrassTexture() {
@@ -184,6 +186,78 @@ function updateClouds() {
     });
 }
 
+// Create a splash particle
+function createSplashParticle() {
+    // Random size between 0.1 and 0.3
+    const size = 0.1 + Math.random() * 0.2;
+    const geometry = new THREE.SphereGeometry(size, 8, 8);
+    
+    // Array of different blue colors
+    const blueColors = [
+        0x87CEEB, // Sky blue
+        0x1E90FF, // Dodger blue
+        0x4169E1  // Royal blue
+    ];
+    
+    const material = new THREE.MeshPhongMaterial({
+        color: blueColors[Math.floor(Math.random() * blueColors.length)],
+        transparent: true,
+        opacity: 1.0 // Start fully opaque
+    });
+    return new THREE.Mesh(geometry, material);
+}
+
+// Create splash effect at position
+function createSplashEffect(position) {
+    console.log('Creating splash effect at position:', position);
+    // Create new splash particles
+    for (let i = 0; i < numberOfSplashParticles; i++) {
+        const particle = createSplashParticle();
+        
+        // Set initial position to impact point
+        particle.position.copy(position);
+        
+        // Random velocity in a circular upward pattern
+        const angle = (i / numberOfSplashParticles) * Math.PI * 2;
+        const speed = 0.3 + Math.random() * 0.4; // Increased speed
+        particle.userData.velocity = new THREE.Vector3(
+            Math.cos(angle) * speed,
+            0.5 + Math.random() * 0.3, // Increased upward velocity
+            Math.sin(angle) * speed
+        );
+        
+        // Add to scene and array
+        splashParticles.push(particle);
+        scene.add(particle);
+    }
+    console.log('Created', numberOfSplashParticles, 'splash particles');
+}
+
+// Update splash particles
+function updateSplashParticles() {
+    if (splashParticles.length > 0) {
+        console.log('Updating', splashParticles.length, 'splash particles');
+    }
+    for (let i = splashParticles.length - 1; i >= 0; i--) {
+        const particle = splashParticles[i];
+        
+        // Update position
+        particle.position.add(particle.userData.velocity);
+        
+        // Apply gravity
+        particle.userData.velocity.y -= gravity * 0.3; // Reduced gravity effect
+        
+        // Fade out
+        particle.material.opacity -= 0.01; // Slower fade out
+        
+        // Remove if invisible or below water
+        if (particle.material.opacity <= 0 || particle.position.y < -0.1) {
+            scene.remove(particle);
+            splashParticles.splice(i, 1);
+        }
+    }
+}
+
 // Initialize the game
 function init() {
     // Create scene
@@ -306,69 +380,94 @@ function handleKeyUp(event) {
 
 // Update game state
 function update() {
-    if (isGameOver) return;
-
     // Apply gravity
     playerVelocity.y -= gravity;
 
-    // Apply friction and deceleration
-    playerVelocity.x *= friction;
-    playerVelocity.z *= friction;
+    // Store previous Y position to detect water contact
+    const previousY = player.position.y;
 
-    // Limit maximum speed
-    const horizontalSpeed = Math.sqrt(playerVelocity.x * playerVelocity.x + playerVelocity.z * playerVelocity.z);
-    if (horizontalSpeed > maxSpeed) {
-        const ratio = maxSpeed / horizontalSpeed;
-        playerVelocity.x *= ratio;
-        playerVelocity.z *= ratio;
+    // Only update player movement if game is not over
+    if (!isGameOver) {
+        // Apply friction and deceleration
+        playerVelocity.x *= friction;
+        playerVelocity.z *= friction;
+
+        // Limit maximum speed
+        const horizontalSpeed = Math.sqrt(playerVelocity.x * playerVelocity.x + playerVelocity.z * playerVelocity.z);
+        if (horizontalSpeed > maxSpeed) {
+            const ratio = maxSpeed / horizontalSpeed;
+            playerVelocity.x *= ratio;
+            playerVelocity.z *= ratio;
+        }
+
+        // Update player position
+        player.position.x += playerVelocity.x;
+        player.position.y += playerVelocity.y;
+        player.position.z += playerVelocity.z;
+
+        // Update ball rotation based on movement
+        if (horizontalSpeed > 0.01) { // Only rotate if moving
+            // Calculate rotation axis (perpendicular to movement direction)
+            const rotationAxis = new THREE.Vector3(-playerVelocity.z, 0, playerVelocity.x).normalize();
+            // Calculate rotation amount based on speed
+            const rotationAmount = horizontalSpeed * rotationSpeed;
+            // Apply rotation
+            player.rotateOnAxis(rotationAxis, rotationAmount);
+        }
+
+        // Check if player is on the island
+        const distanceFromCenter = Math.sqrt(
+            Math.pow(player.position.x, 2) + 
+            Math.pow(player.position.z, 2)
+        );
+
+        // Only keep player on island surface if they're actually on the island
+        if (distanceFromCenter <= islandRadius && player.position.y < ballHeight) {
+            player.position.y = ballHeight;
+            playerVelocity.y = 0;
+        }
+
+        // Only trigger game over if the ball is below -5 units (deep in the water)
+        // or if it's fallen off the island AND is below the water surface
+        if (player.position.y < -5 || (distanceFromCenter > islandRadius && player.position.y < -0.1)) {
+            console.log('Game Over triggered! Distance:', distanceFromCenter, 'Y:', player.position.y);
+            gameOver();
+        }
     }
 
-    // Update player position
-    player.position.x += playerVelocity.x;
-    player.position.y += playerVelocity.y;
-    player.position.z += playerVelocity.z;
-
-    // Update ball rotation based on movement
-    if (horizontalSpeed > 0.01) { // Only rotate if moving
-        // Calculate rotation axis (perpendicular to movement direction)
-        const rotationAxis = new THREE.Vector3(-playerVelocity.z, 0, playerVelocity.x).normalize();
-        // Calculate rotation amount based on speed
-        const rotationAmount = horizontalSpeed * rotationSpeed;
-        // Apply rotation
-        player.rotateOnAxis(rotationAxis, rotationAmount);
+    // Check for water contact (water is at y = -0.1)
+    if (previousY >= -0.1 && player.position.y < -0.1) {
+        console.log('Water contact detected! Previous Y:', previousY, 'Current Y:', player.position.y);
+        // Create splash at the exact point where the ball hits the water
+        const splashPosition = new THREE.Vector3(
+            player.position.x,
+            -0.1,
+            player.position.z
+        );
+        createSplashEffect(splashPosition);
     }
 
-    // Check if player is on the island
-    const distanceFromCenter = Math.sqrt(
-        Math.pow(player.position.x, 2) + 
-        Math.pow(player.position.z, 2)
-    );
-
-    if (distanceFromCenter > islandRadius) {
-        gameOver();
-    }
-
-    if (player.position.y < -5) {
-        gameOver();
-    }
-
-    // Keep player on island surface
-    if (player.position.y < playerRadius) {
-        player.position.y = playerRadius;
-        playerVelocity.y = 0;
-    }
+    // Update splash particles (always update, even after game over)
+    updateSplashParticles();
 }
 
 // Game over handler
 function gameOver() {
     isGameOver = true;
+    // Wait for splash animation to complete before resetting
     setTimeout(() => {
         resetGame();
-    }, 1000);
+    }, 2000); // Increased from 1000 to 2000 to allow more time for splash animation
 }
 
 // Reset game
 function resetGame() {
+    // Clear any remaining splash particles
+    splashParticles.forEach(particle => {
+        scene.remove(particle);
+    });
+    splashParticles = [];
+    
     player.position.set(0, playerRadius, 0);
     playerVelocity.set(0, 0, 0);
     player.rotation.set(0, 0, 0); // Reset rotation
