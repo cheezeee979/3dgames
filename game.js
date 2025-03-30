@@ -1,5 +1,6 @@
 // Game state
 let scene, camera, renderer, player, island, water, sky;
+let clouds = []; // Array to store cloud objects
 let isGameOver = false;
 let playerVelocity = new THREE.Vector3();
 const playerRadius = 1;
@@ -11,6 +12,8 @@ const deceleration = 0.98; // Higher value means slower deceleration
 const friction = 0.99; // Higher value means less friction
 const rotationSpeed = 1.0; // Increased from 0.1 to 1.0 for more obvious rotation
 const ballHeight = playerRadius * 1.1; // Slightly higher than radius to prevent sinking
+const cloudSpeed = 0.1; // Increased speed
+const numberOfClouds = 3; // Reduced from 6 to 3
 
 // Create grass texture for the island
 function createGrassTexture() {
@@ -92,6 +95,95 @@ function createDottedTexture() {
     return texture;
 }
 
+// Create a single cloud using multiple spheres
+function createCloud() {
+    const cloudGroup = new THREE.Group();
+    const cloudMaterial = new THREE.MeshPhongMaterial({
+        color: 0xffffff,
+        emissive: 0x555555, // Add some self-illumination
+        shininess: 0,
+        opacity: 0.95,
+        transparent: true
+    });
+
+    // Create main cloud body (much larger)
+    const mainSphere = new THREE.Mesh(
+        new THREE.SphereGeometry(15, 16, 16), // Much larger main body
+        cloudMaterial
+    );
+    cloudGroup.add(mainSphere);
+
+    // Add additional larger spheres to create puffy appearance
+    const numPuffs = 10; // More puffs
+    for (let i = 0; i < numPuffs; i++) {
+        const puffSize = 8 + Math.random() * 8; // Much larger puffs
+        const puff = new THREE.Mesh(
+            new THREE.SphereGeometry(puffSize, 16, 16),
+            cloudMaterial
+        );
+        
+        // Position puffs around main sphere
+        const angle = (i / numPuffs) * Math.PI * 2;
+        const radius = 12; // Larger radius
+        puff.position.x = Math.cos(angle) * radius;
+        puff.position.y = Math.random() * 6 - 3; // More vertical variation
+        puff.position.z = Math.sin(angle) * radius;
+        
+        cloudGroup.add(puff);
+    }
+
+    // Add top puffs
+    const topPuffs = 5; // More top puffs
+    for (let i = 0; i < topPuffs; i++) {
+        const puff = new THREE.Mesh(
+            new THREE.SphereGeometry(10, 16, 16), // Much larger top puffs
+            cloudMaterial
+        );
+        puff.position.x = (i - 2) * 8;
+        puff.position.y = 8;
+        cloudGroup.add(puff);
+    }
+
+    return cloudGroup;
+}
+
+// Initialize clouds
+function initClouds() {
+    for (let i = 0; i < numberOfClouds; i++) {
+        const cloud = createCloud();
+        
+        // Position clouds with more spacing between them
+        cloud.position.x = -200 + (i * 200); // Even spacing across the scene
+        cloud.position.y = 30 + Math.random() * 10;
+        cloud.position.z = -100 - Math.random() * 50;
+        
+        // Randomize rotation slightly for variety
+        cloud.rotation.y = Math.random() * Math.PI;
+        
+        // Scale clouds randomly but keep them large
+        const scale = 1.5 + Math.random() * 0.5;
+        cloud.scale.set(scale, scale * 0.6, scale);
+        
+        clouds.push(cloud);
+        scene.add(cloud);
+    }
+}
+
+// Update cloud positions
+function updateClouds() {
+    clouds.forEach(cloud => {
+        cloud.position.x += cloudSpeed;
+        
+        // If cloud moves off screen, reset to start with more spacing
+        if (cloud.position.x > 250) {
+            cloud.position.x = -300; // Start further back
+            cloud.position.z = -100 - Math.random() * 50;
+            cloud.position.y = 30 + Math.random() * 10;
+            cloud.rotation.y = Math.random() * Math.PI;
+        }
+    });
+}
+
 // Initialize the game
 function init() {
     // Create scene
@@ -118,7 +210,7 @@ function init() {
     textureLoader.load('assets/grass_texture.png', function(texture) {
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
-        texture.repeat.set(4, 4); // Adjust this value to change the texture scale
+        texture.repeat.set(4, 4);
         
         const islandGeometry = new THREE.CylinderGeometry(islandRadius, islandRadius, 1, 32);
         const islandMaterial = new THREE.MeshPhongMaterial({ 
@@ -153,6 +245,9 @@ function init() {
     });
     sky = new THREE.Mesh(skyGeometry, skyMaterial);
     scene.add(sky);
+
+    // Initialize clouds
+    initClouds();
 
     // Add lights
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -284,6 +379,7 @@ function resetGame() {
 function animate() {
     requestAnimationFrame(animate);
     update();
+    updateClouds(); // Update cloud positions
     renderer.render(scene, camera);
 }
 
