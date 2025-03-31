@@ -85,8 +85,8 @@ function createDottedTexture() {
 
     // Draw white dots
     ctx.fillStyle = '#ffffff';
-    const dotSize = 8;
-    const spacing = 32;
+    const dotSize = 10; // Slightly increased from 8
+    const spacing = 36; // Slightly increased from 32
     
     for (let x = spacing; x < canvas.width; x += spacing) {
         for (let y = spacing; y < canvas.height; y += spacing) {
@@ -268,22 +268,42 @@ function updateSplashParticles() {
 function init() {
     // Create scene
     scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB); // Sky blue
+
+    // Create camera
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: true });
+    camera.position.set(0, 10, 20); // Restored original camera position
+    camera.lookAt(player ? player.position : new THREE.Vector3(0, 0, 0));
+
+    // Create renderer using the existing canvas
+    renderer = new THREE.WebGLRenderer({ 
+        canvas: document.getElementById('gameCanvas'),
+        antialias: true 
+    });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Restored shadow map type
 
-    // Create player (ball)
-    const playerGeometry = new THREE.SphereGeometry(playerRadius, 32, 32);
-    const playerMaterial = new THREE.MeshPhongMaterial({ 
-        map: createDottedTexture(),
-        shininess: 30
-    });
-    player = new THREE.Mesh(playerGeometry, playerMaterial);
-    player.castShadow = true;
-    player.position.y = ballHeight;
-    scene.add(player);
+    // Add ambient light
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    // Add directional light (sun)
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    directionalLight.position.set(5, 10, 5);
+    directionalLight.castShadow = true;
+    
+    // Configure shadow camera
+    directionalLight.shadow.camera.near = 0.1;
+    directionalLight.shadow.camera.far = 1000;
+    directionalLight.shadow.camera.left = -50;
+    directionalLight.shadow.camera.right = 50;
+    directionalLight.shadow.camera.top = 50;
+    directionalLight.shadow.camera.bottom = -50;
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+    
+    scene.add(directionalLight);
 
     // Load grass texture and create island
     const textureLoader = new THREE.TextureLoader();
@@ -305,11 +325,11 @@ function init() {
     });
 
     // Create water
-    const waterGeometry = new THREE.PlaneGeometry(1000, 1000);
-    const waterMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0x0000ff,
+    const waterGeometry = new THREE.PlaneGeometry(1000, 1000); // Restored original size
+    const waterMaterial = new THREE.MeshPhongMaterial({
+        color: 0x0000ff, // Restored original water color
         transparent: true,
-        opacity: 0.6
+        opacity: 0.6 // Restored original opacity
     });
     water = new THREE.Mesh(waterGeometry, waterMaterial);
     water.rotation.x = -Math.PI / 2;
@@ -318,8 +338,8 @@ function init() {
     scene.add(water);
 
     // Create sky
-    const skyGeometry = new THREE.SphereGeometry(500, 32, 32);
-    const skyMaterial = new THREE.MeshBasicMaterial({ 
+    const skyGeometry = new THREE.SphereGeometry(500, 32, 32); // Restored original size
+    const skyMaterial = new THREE.MeshBasicMaterial({
         color: 0x87CEEB,
         side: THREE.BackSide
     });
@@ -329,37 +349,64 @@ function init() {
     // Initialize clouds
     initClouds();
 
-    // Add lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    directionalLight.position.set(5, 10, 5);
-    directionalLight.castShadow = true;
-    
-    // Configure shadow camera
-    directionalLight.shadow.camera.near = 0.1;
-    directionalLight.shadow.camera.far = 1000;
-    directionalLight.shadow.camera.left = -50;
-    directionalLight.shadow.camera.right = 50;
-    directionalLight.shadow.camera.top = 50;
-    directionalLight.shadow.camera.bottom = -50;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    
-    scene.add(directionalLight);
-
-    // Position camera
-    camera.position.set(0, 10, 20);
-    camera.lookAt(player.position);
-
     // Add event listeners
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('keyup', handleKeyUp);
     window.addEventListener('resize', onWindowResize, false);
+    window.addEventListener('keydown', handleKeyDown, false);
+    window.addEventListener('keyup', handleKeyUp, false);
 
-    // Start game loop
+    // Start animation loop
     animate();
+
+    // Setup modal
+    setupModal();
+}
+
+// Setup modal and handle player name input
+function setupModal() {
+    const startModal = document.getElementById('startModal');
+    const playerNameInput = document.getElementById('playerName');
+    const startButton = document.getElementById('startButton');
+
+    // Show modal by default
+    startModal.style.display = 'block';
+
+    // Enable/disable start button based on input
+    playerNameInput.addEventListener('input', function() {
+        startButton.disabled = !this.value.trim();
+    });
+
+    // Handle start button click
+    startButton.addEventListener('click', function() {
+        console.log('Start button clicked');
+        const playerName = playerNameInput.value.trim();
+        if (playerName) {
+            console.log('Starting game with player name:', playerName);
+            startModal.style.display = 'none';
+            createPlayer(); // Create the player ball only after modal is closed
+        }
+    });
+
+    // Handle enter key in input field
+    playerNameInput.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter' && !startButton.disabled) {
+            startButton.click();
+        }
+    });
+}
+
+// Create the player ball
+function createPlayer() {
+    console.log('Creating player ball');
+    const playerGeometry = new THREE.SphereGeometry(playerRadius, 32, 32);
+    const playerMaterial = new THREE.MeshPhongMaterial({ 
+        map: createDottedTexture(),
+        shininess: 30
+    });
+    player = new THREE.Mesh(playerGeometry, playerMaterial);
+    player.castShadow = true;
+    player.position.y = ballHeight;
+    scene.add(player);
+    console.log('Player ball created and added to scene');
 }
 
 // Handle keyboard input
@@ -389,6 +436,9 @@ function handleKeyUp(event) {
 
 // Update game state
 function update() {
+    // Skip player updates if player doesn't exist yet
+    if (!player) return;
+
     // Apply gravity
     playerVelocity.y -= gravity;
 
@@ -519,7 +569,17 @@ function onWindowResize() {
 
 // Start game when button is clicked
 document.getElementById('playButton').addEventListener('click', () => {
+    // Hide homepage
     document.getElementById('homepage').style.display = 'none';
-    document.getElementById('gameContainer').style.display = 'block';
+    
+    // Show game container
+    const gameContainer = document.getElementById('gameContainer');
+    gameContainer.style.display = 'block';
+    
+    // Initialize the game (this creates the 3D scene)
     init();
+    
+    // Show the modal immediately after initialization
+    const startModal = document.getElementById('startModal');
+    startModal.style.display = 'block';
 }); 

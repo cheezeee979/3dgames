@@ -14,6 +14,13 @@
     </div>
     <div id="gameContainer" style="display: none;">
         <canvas id="gameCanvas"></canvas>
+        <div id="startModal" class="modal">
+            <div class="modal-content">
+                <h2>Enter Your Name</h2>
+                <input type="text" id="playerName" placeholder="Your name" maxlength="20">
+                <button id="startButton" disabled>Start Game</button>
+            </div>
+        </div>
     </div>
     <script src="game.js"></script>
 </body>
