@@ -264,6 +264,63 @@ function updateSplashParticles() {
     }
 }
 
+// Create text sprite for player name
+function createTextSprite(text) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    
+    // Set initial canvas size (must be set before any drawing operations)
+    canvas.width = 256;
+    canvas.height = 64;
+    
+    // Set font properties
+    const fontSize = 32;
+    context.font = `${fontSize}px Arial`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    
+    // Clear canvas with full transparency
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw text
+    context.fillStyle = 'white';
+    context.fillText(text, canvas.width / 2, canvas.height / 2);
+    
+    // Create texture
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.format = THREE.RGBAFormat;
+    
+    // Create sprite material with full transparency
+    const spriteMaterial = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        sizeAttenuation: true,
+        depthTest: false,
+        depthWrite: false,
+        depthFunc: THREE.AlwaysDepth,
+        blending: THREE.CustomBlending,
+        blendSrc: THREE.SrcAlphaFactor,
+        blendDst: THREE.OneMinusSrcAlphaFactor,
+        blendEquation: THREE.AddEquation,
+        fog: false
+    });
+    
+    // Create sprite
+    const sprite = new THREE.Sprite(spriteMaterial);
+    
+    // Scale sprite
+    const spriteScale = 0.015;
+    sprite.scale.set(canvas.width * spriteScale, canvas.height * spriteScale, 1);
+    
+    // Ensure sprite renders on top of everything
+    sprite.renderOrder = 999;
+    
+    return sprite;
+}
+
 // Initialize the game
 function init() {
     // Create scene
@@ -406,6 +463,18 @@ function createPlayer() {
     player.castShadow = true;
     player.position.y = ballHeight;
     scene.add(player);
+    
+    // Create name sprite as a separate object
+    const playerName = document.getElementById('playerName').value.trim();
+    const nameSprite = createTextSprite(playerName);
+    nameSprite.position.y = player.position.y + playerRadius * 1.8; // Lowered from 2.5 to 1.8
+    nameSprite.position.x = player.position.x;
+    nameSprite.position.z = player.position.z;
+    scene.add(nameSprite);
+    
+    // Store reference to nameSprite
+    player.userData.nameSprite = nameSprite;
+    
     console.log('Player ball created and added to scene');
 }
 
@@ -438,6 +507,13 @@ function handleKeyUp(event) {
 function update() {
     // Skip player updates if player doesn't exist yet
     if (!player) return;
+
+    // Update name sprite position to follow ball
+    if (player.userData.nameSprite) {
+        player.userData.nameSprite.position.x = player.position.x;
+        player.userData.nameSprite.position.z = player.position.z;
+        player.userData.nameSprite.position.y = player.position.y + playerRadius * 1.8; // Lowered from 2.5 to 1.8
+    }
 
     // Apply gravity
     playerVelocity.y -= gravity;
@@ -545,8 +621,18 @@ function resetGame() {
     splashParticles = [];
     
     player.position.set(0, playerRadius, 0);
+    
+    // Update name sprite position when resetting
+    if (player.userData.nameSprite) {
+        player.userData.nameSprite.position.set(
+            player.position.x,
+            player.position.y + playerRadius * 1.8, // Lowered from 2.5 to 1.8
+            player.position.z
+        );
+    }
+    
     playerVelocity.set(0, 0, 0);
-    player.rotation.set(0, 0, 0); // Reset rotation
+    player.rotation.set(0, 0, 0);
     isGameOver = false;
     isFloating = false;
     floatTime = 0;
