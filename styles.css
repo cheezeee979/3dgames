@@ -55,12 +55,12 @@ body {
     transform: translate(-50%, -50%);
     width: 800px;
     z-index: 1000;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.3);
     border-radius: 15px;
 }
 
 .modal-content {
-    background-color: #1a1a1a;
+    background-color: rgba(26, 26, 26, 0.9);
     padding: 2rem;
     border-radius: 10px;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);

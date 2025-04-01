@@ -555,19 +555,36 @@ function createPlayer() {
     return player;
 }
 
-// Initialize the game
-function init() {
-    // Load available ball textures
-    loadBallTextures();
+// Start game when button is clicked
+document.getElementById('playButton').addEventListener('click', () => {
+    // Hide homepage
+    document.getElementById('homepage').style.display = 'none';
     
+    // Show game container
+    const gameContainer = document.getElementById('gameContainer');
+    gameContainer.style.display = 'block';
+    
+    // Initialize the game environment first
+    initGameEnvironment();
+    
+    // Initialize the game (load textures and setup modal)
+    init();
+    
+    // Then show the modal
+    const startModal = document.getElementById('startModal');
+    startModal.style.display = 'block';
+});
+
+// Initialize the game environment
+function initGameEnvironment() {
     // Create scene
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB); // Sky blue
 
     // Create camera
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 10, 20); // Restored original camera position
-    camera.lookAt(player ? player.position : new THREE.Vector3(0, 0, 0));
+    camera.position.set(0, 10, 20);
+    camera.lookAt(new THREE.Vector3(0, 0, 0));
 
     // Create renderer using the existing canvas
     renderer = new THREE.WebGLRenderer({ 
@@ -576,7 +593,7 @@ function init() {
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Restored shadow map type
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     // Add ambient light
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -619,11 +636,11 @@ function init() {
     });
 
     // Create water
-    const waterGeometry = new THREE.PlaneGeometry(1000, 1000); // Restored original size
+    const waterGeometry = new THREE.PlaneGeometry(1000, 1000);
     const waterMaterial = new THREE.MeshPhongMaterial({
-        color: 0x0000ff, // Restored original water color
+        color: 0x0000ff,
         transparent: true,
-        opacity: 0.6 // Restored original opacity
+        opacity: 0.6
     });
     water = new THREE.Mesh(waterGeometry, waterMaterial);
     water.rotation.x = -Math.PI / 2;
@@ -632,7 +649,7 @@ function init() {
     scene.add(water);
 
     // Create sky
-    const skyGeometry = new THREE.SphereGeometry(500, 32, 32); // Restored original size
+    const skyGeometry = new THREE.SphereGeometry(500, 32, 32);
     const skyMaterial = new THREE.MeshBasicMaterial({
         color: 0x87CEEB,
         side: THREE.BackSide
@@ -650,7 +667,13 @@ function init() {
 
     // Start animation loop
     animate();
+}
 
+// Initialize the game
+function init() {
+    // Load available ball textures
+    loadBallTextures();
+    
     // Setup modal
     setupModal();
 }
@@ -865,23 +888,6 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
-
-// Start game when button is clicked
-document.getElementById('playButton').addEventListener('click', () => {
-    // Hide homepage
-    document.getElementById('homepage').style.display = 'none';
-    
-    // Show game container
-    const gameContainer = document.getElementById('gameContainer');
-    gameContainer.style.display = 'block';
-    
-    // Initialize the game (this creates the 3D scene)
-    init();
-    
-    // Show the modal immediately after initialization
-    const startModal = document.getElementById('startModal');
-    startModal.style.display = 'block';
-});
 
 // Start game function
 function startGame() {
