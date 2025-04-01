@@ -25,6 +25,9 @@ const waterFriction = 0.95; // Friction while floating in water
 let playerName = '';
 let selectedBallTexture = 'default'; // Default texture name
 let availableBallTextures = [];
+let previewScenes = []; // Array to store preview scenes
+let previewRenderers = []; // Array to store preview renderers
+let previewBalls = []; // Array to store preview ball meshes
 
 // Create grass texture for the island
 function createGrassTexture() {
@@ -350,10 +353,100 @@ function createDefaultBallTexture() {
     return canvas;
 }
 
-// Function to load available ball textures
+// Function to create a preview scene
+function createPreviewScene() {
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x2a2a2a);
+    
+    // Create camera
+    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+    camera.position.z = 5;
+    
+    // Add lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(5, 5, 5);
+    scene.add(directionalLight);
+    
+    return { scene, camera };
+}
+
+// Function to create a preview ball
+function createPreviewBall(texture) {
+    const geometry = new THREE.SphereGeometry(1, 32, 32);
+    const material = new THREE.MeshPhongMaterial({
+        map: texture,
+        shininess: 50,
+        specular: 0x222222
+    });
+    return new THREE.Mesh(geometry, material);
+}
+
+// Function to animate preview balls
+function animatePreviewBalls() {
+    previewBalls.forEach((ball, index) => {
+        if (ball) {
+            ball.rotation.y += 0.02;
+            if (previewRenderers[index]) {
+                previewRenderers[index].render(previewScenes[index].scene, previewScenes[index].camera);
+            }
+        }
+    });
+    requestAnimationFrame(animatePreviewBalls);
+}
+
+// Function to create preview cell
+function createPreviewCell(texture, name) {
+    const cell = document.createElement('div');
+    cell.className = 'ball-preview-cell';
+    cell.dataset.textureName = name;
+    
+    // Create canvas for preview
+    const canvas = document.createElement('canvas');
+    cell.appendChild(canvas);
+    
+    // Create name label
+    const nameLabel = document.createElement('div');
+    nameLabel.className = 'ball-preview-name';
+    nameLabel.textContent = name;
+    cell.appendChild(nameLabel);
+    
+    // Create renderer
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(100, 100);
+    previewRenderers.push(renderer);
+    
+    // Create scene and camera
+    const { scene, camera } = createPreviewScene();
+    previewScenes.push({ scene, camera });
+    
+    // Create and add ball
+    const ball = createPreviewBall(texture);
+    scene.add(ball);
+    previewBalls.push(ball);
+    
+    // Handle selection
+    cell.addEventListener('click', () => {
+        // Remove selection from all cells
+        document.querySelectorAll('.ball-preview-cell').forEach(c => {
+            c.classList.remove('selected');
+        });
+        
+        // Add selection to clicked cell
+        cell.classList.add('selected');
+        selectedBallTexture = name;
+    });
+    
+    return cell;
+}
+
+// Update loadBallTextures function
 function loadBallTextures() {
     console.log('Starting to load ball textures...');
     const textureLoader = new THREE.TextureLoader();
+    const gridContainer = document.getElementById('ballTextureGrid');
     
     // Create and load default texture
     const defaultCanvas = createDefaultBallTexture();
@@ -367,6 +460,10 @@ function loadBallTextures() {
         displayName: 'Classic Red'
     });
     
+    // Create preview cell for default texture
+    const defaultCell = createPreviewCell(defaultTexture, 'Classic Red');
+    gridContainer.appendChild(defaultCell);
+    
     console.log('Added default texture to available textures');
     
     // Load additional textures from assets folder
@@ -377,12 +474,6 @@ function loadBallTextures() {
         { name: 'limegreenpinkdots', displayName: 'Lime Green & Pink Dots' },
         { name: 'smiley', displayName: 'Smiley Face' }
     ];
-    
-    // Clear existing options except the first one (default)
-    const textureSelect = document.getElementById('ballTexture');
-    if (textureSelect) {
-        textureSelect.innerHTML = '<option value="default">Classic Red</option>';
-    }
     
     let loadedTextures = 0;
     const totalTextures = textureFiles.length;
@@ -404,13 +495,9 @@ function loadBallTextures() {
                         displayName: file.displayName
                     });
                     
-                    // Update dropdown
-                    if (textureSelect) {
-                        const option = document.createElement('option');
-                        option.value = file.name;
-                        option.textContent = file.displayName;
-                        textureSelect.appendChild(option);
-                    }
+                    // Create preview cell
+                    const cell = createPreviewCell(texture, file.displayName);
+                    gridContainer.appendChild(cell);
                     
                     loadedTextures++;
                     console.log(`Loaded ${loadedTextures}/${totalTextures} textures`);
@@ -432,6 +519,9 @@ function loadBallTextures() {
             console.log(`Error processing ${file.name}, ${loadedTextures}/${totalTextures} textures processed`);
         }
     });
+    
+    // Start preview animation
+    animatePreviewBalls();
 }
 
 // Function to create player with selected texture
@@ -439,7 +529,7 @@ function createPlayer() {
     const geometry = new THREE.SphereGeometry(playerRadius, 32, 32);
     
     // Get the selected texture from available textures
-    const selectedTexture = availableBallTextures.find(t => t.name === selectedBallTexture)?.texture || availableBallTextures[0].texture;
+    const selectedTexture = availableBallTextures.find(t => t.displayName === selectedBallTexture)?.texture || availableBallTextures[0].texture;
     
     const material = new THREE.MeshPhongMaterial({
         map: selectedTexture,
@@ -469,17 +559,6 @@ function createPlayer() {
 function init() {
     // Load available ball textures
     loadBallTextures();
-    
-    // Update texture selection dropdown
-    const textureSelect = document.getElementById('ballTexture');
-    textureSelect.innerHTML = ''; // Clear existing options
-    
-    availableBallTextures.forEach(texture => {
-        const option = document.createElement('option');
-        option.value = texture.name;
-        option.textContent = texture.displayName;
-        textureSelect.appendChild(option);
-    });
     
     // Create scene
     scene = new THREE.Scene();
@@ -594,7 +673,6 @@ function setupModal() {
     startButton.addEventListener('click', function() {
         console.log('Start button clicked');
         playerName = playerNameInput.value.trim();
-        selectedBallTexture = document.getElementById('ballTexture').value;
         
         if (playerName) {
             console.log('Starting game with player name:', playerName);
