@@ -22,6 +22,9 @@ const floatDuration = 3.0; // Duration of floating in seconds
 const floatAmplitude = 0.15; // Increased from 0.1 to 0.15 for more noticeable bobbing
 const floatFrequency = 3.0; // Increased from 2.0 to 3.0 for faster bobbing
 const waterFriction = 0.95; // Friction while floating in water
+let playerName = '';
+let selectedBallTexture = 'default'; // Default texture name
+let availableBallTextures = [];
 
 // Create grass texture for the island
 function createGrassTexture() {
@@ -321,8 +324,163 @@ function createTextSprite(text) {
     return sprite;
 }
 
+// Function to create a default ball texture
+function createDefaultBallTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    
+    // Create gradient for 3D effect
+    const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+    gradient.addColorStop(0, '#ff4444');   // Bright red center
+    gradient.addColorStop(0.5, '#cc0000'); // Medium red middle
+    gradient.addColorStop(1, '#990000');   // Dark red edge
+    
+    // Fill with gradient
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 256, 256);
+    
+    // Add highlight for 3D effect
+    ctx.beginPath();
+    ctx.arc(80, 80, 40, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.fill();
+    
+    return canvas;
+}
+
+// Function to load available ball textures
+function loadBallTextures() {
+    console.log('Starting to load ball textures...');
+    const textureLoader = new THREE.TextureLoader();
+    
+    // Create and load default texture
+    const defaultCanvas = createDefaultBallTexture();
+    const defaultTexture = new THREE.CanvasTexture(defaultCanvas);
+    defaultTexture.needsUpdate = true;
+    
+    // Add default texture to available textures
+    availableBallTextures.push({
+        name: 'default',
+        texture: defaultTexture,
+        displayName: 'Classic Red'
+    });
+    
+    console.log('Added default texture to available textures');
+    
+    // Load additional textures from assets folder
+    const textureFiles = [
+        { name: 'rainbow', displayName: 'Rainbow Ball' },
+        { name: 'bluewhitestripes', displayName: 'Blue & White Stripes' },
+        { name: 'redwhitedots', displayName: 'Red & White Dots' },
+        { name: 'limegreenpinkdots', displayName: 'Lime Green & Pink Dots' },
+        { name: 'smiley', displayName: 'Smiley Face' }
+    ];
+    
+    // Clear existing options except the first one (default)
+    const textureSelect = document.getElementById('ballTexture');
+    if (textureSelect) {
+        textureSelect.innerHTML = '<option value="default">Classic Red</option>';
+    }
+    
+    let loadedTextures = 0;
+    const totalTextures = textureFiles.length;
+    
+    textureFiles.forEach(file => {
+        const texturePath = `assets/ball_texture_${file.name}.png`;
+        console.log('Attempting to load texture:', texturePath);
+        
+        try {
+            const texture = textureLoader.load(
+                texturePath,
+                // Success callback
+                (texture) => {
+                    console.log('Successfully loaded texture:', file.name);
+                    texture.needsUpdate = true;
+                    availableBallTextures.push({
+                        name: file.name,
+                        texture: texture,
+                        displayName: file.displayName
+                    });
+                    
+                    // Update dropdown
+                    if (textureSelect) {
+                        const option = document.createElement('option');
+                        option.value = file.name;
+                        option.textContent = file.displayName;
+                        textureSelect.appendChild(option);
+                    }
+                    
+                    loadedTextures++;
+                    console.log(`Loaded ${loadedTextures}/${totalTextures} textures`);
+                },
+                // Progress callback
+                (progress) => {
+                    console.log(`Loading ${file.name}: ${(progress.loaded / progress.total * 100)}%`);
+                },
+                // Error callback
+                (error) => {
+                    console.error('Error loading texture:', file.name, error);
+                    loadedTextures++;
+                    console.log(`Failed to load ${file.name}, ${loadedTextures}/${totalTextures} textures processed`);
+                }
+            );
+        } catch (error) {
+            console.error('Error in texture loading process:', file.name, error);
+            loadedTextures++;
+            console.log(`Error processing ${file.name}, ${loadedTextures}/${totalTextures} textures processed`);
+        }
+    });
+}
+
+// Function to create player with selected texture
+function createPlayer() {
+    const geometry = new THREE.SphereGeometry(playerRadius, 32, 32);
+    
+    // Get the selected texture from available textures
+    const selectedTexture = availableBallTextures.find(t => t.name === selectedBallTexture)?.texture || availableBallTextures[0].texture;
+    
+    const material = new THREE.MeshPhongMaterial({
+        map: selectedTexture,
+        shininess: 50,
+        specular: 0x222222
+    });
+    
+    const player = new THREE.Mesh(geometry, material);
+    player.position.set(0, playerRadius, 0);
+    player.castShadow = true;
+    player.receiveShadow = true;
+    
+    // Create text sprite for player name as a separate object
+    if (playerName) {
+        const nameSprite = createTextSprite(playerName);
+        nameSprite.position.y = player.position.y + playerRadius * 1.8;
+        nameSprite.position.x = player.position.x;
+        nameSprite.position.z = player.position.z;
+        scene.add(nameSprite); // Add to scene directly instead of as child of player
+        player.userData.nameSprite = nameSprite;
+    }
+    
+    return player;
+}
+
 // Initialize the game
 function init() {
+    // Load available ball textures
+    loadBallTextures();
+    
+    // Update texture selection dropdown
+    const textureSelect = document.getElementById('ballTexture');
+    textureSelect.innerHTML = ''; // Clear existing options
+    
+    availableBallTextures.forEach(texture => {
+        const option = document.createElement('option');
+        option.value = texture.name;
+        option.textContent = texture.displayName;
+        textureSelect.appendChild(option);
+    });
+    
     // Create scene
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB); // Sky blue
@@ -435,11 +593,13 @@ function setupModal() {
     // Handle start button click
     startButton.addEventListener('click', function() {
         console.log('Start button clicked');
-        const playerName = playerNameInput.value.trim();
+        playerName = playerNameInput.value.trim();
+        selectedBallTexture = document.getElementById('ballTexture').value;
+        
         if (playerName) {
             console.log('Starting game with player name:', playerName);
             startModal.style.display = 'none';
-            createPlayer(); // Create the player ball only after modal is closed
+            startGame();
         }
     });
 
@@ -449,33 +609,6 @@ function setupModal() {
             startButton.click();
         }
     });
-}
-
-// Create the player ball
-function createPlayer() {
-    console.log('Creating player ball');
-    const playerGeometry = new THREE.SphereGeometry(playerRadius, 32, 32);
-    const playerMaterial = new THREE.MeshPhongMaterial({ 
-        map: createDottedTexture(),
-        shininess: 30
-    });
-    player = new THREE.Mesh(playerGeometry, playerMaterial);
-    player.castShadow = true;
-    player.position.y = ballHeight;
-    scene.add(player);
-    
-    // Create name sprite as a separate object
-    const playerName = document.getElementById('playerName').value.trim();
-    const nameSprite = createTextSprite(playerName);
-    nameSprite.position.y = player.position.y + playerRadius * 1.8; // Lowered from 2.5 to 1.8
-    nameSprite.position.x = player.position.x;
-    nameSprite.position.z = player.position.z;
-    scene.add(nameSprite);
-    
-    // Store reference to nameSprite
-    player.userData.nameSprite = nameSprite;
-    
-    console.log('Player ball created and added to scene');
 }
 
 // Handle keyboard input
@@ -508,11 +641,13 @@ function update() {
     // Skip player updates if player doesn't exist yet
     if (!player) return;
 
-    // Update name sprite position to follow ball
+    // Update name sprite position to follow ball without rotation
     if (player.userData.nameSprite) {
         player.userData.nameSprite.position.x = player.position.x;
         player.userData.nameSprite.position.z = player.position.z;
-        player.userData.nameSprite.position.y = player.position.y + playerRadius * 1.8; // Lowered from 2.5 to 1.8
+        player.userData.nameSprite.position.y = player.position.y + playerRadius * 1.8;
+        // Ensure name sprite doesn't rotate
+        player.userData.nameSprite.rotation.set(0, 0, 0);
     }
 
     // Apply gravity
@@ -668,4 +803,15 @@ document.getElementById('playButton').addEventListener('click', () => {
     // Show the modal immediately after initialization
     const startModal = document.getElementById('startModal');
     startModal.style.display = 'block';
-}); 
+});
+
+// Start game function
+function startGame() {
+    console.log('Starting game with player name:', playerName);
+    
+    // Create the player ball
+    player = createPlayer();
+    scene.add(player);
+    
+    console.log('Player ball created and added to scene');
+} 

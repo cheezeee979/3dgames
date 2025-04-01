@@ -16,9 +16,19 @@
         <canvas id="gameCanvas"></canvas>
         <div id="startModal" class="modal">
             <div class="modal-content">
-                <h2>Enter Your Name</h2>
-                <input type="text" id="playerName" placeholder="Your name" maxlength="20">
-                <button id="startButton" disabled>Start Game</button>
+                <h2>Welcome to the Game!</h2>
+                <div class="input-group">
+                    <label for="playerName">Enter your name:</label>
+                    <input type="text" id="playerName" placeholder="Your name">
+                </div>
+                <div class="input-group">
+                    <label for="ballTexture">Choose your ball texture:</label>
+                    <select id="ballTexture">
+                        <option value="default">Classic Red</option>
+                        <!-- Additional options will be added dynamically -->
+                    </select>
+                </div>
+                <button id="startButton">Start Game</button>
             </div>
         </div>
     </div>
